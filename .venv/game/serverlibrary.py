@@ -2,12 +2,64 @@ import random
 from random import randint
 from random import seed
 
+def checkChokingPoint(board, x, y):
+    # TO DO: change the checking of !=0 to check if it's a wall
+    rows = len(board)
+    columns = len(board[0])
+
+    # check for first and last rows
+    if x == 1 or x == rows - 2:
+        # making sure left and right cells are within first and last column
+        if (y == 1 or y == columns - 2):
+            return True
+        elif (board[x][y - 2] == '   W' or board[x][y + 2] == '   W'):
+            return True
+        elif (x == 1 and (board[x + 1][y - 1] == '   W' or board[x + 1][y + 1] == '   W')):
+            return True
+        elif (x == rows - 2 and (board[x - 1][y - 1] == '   W' or board[x - 1][y + 1] == '   W')):
+            return True
+
+        # check for first and last columns
+    elif y == 1 or y == columns - 2:
+        # making sure left and right cells are within first and last row
+        if (x == 1 or x == rows - 2):
+            return True
+        elif (board[x - 2][y] == '   W' or board[x + 2][y] == '   W'):
+            return True
+        elif (y == 1 and (board[x - 1][y + 1] == '   W' or board[x + 1][y + 1] == '   W')):
+            return True
+        elif (y == columns - 2 and (board[x - 1][y - 1] == '   W' or board[x + 1][y - 1] == '   W')):
+            return True
+
+    else:
+        if board[x + 1][y + 1] == '   W':
+            if board[x][y + 2] == '   W' or board[x + 2][y] == '   W' or board[x - 1][y + 1] == '   W' or board[x + 1][
+                y - 1] == '   W':
+                return True
+        if board[x - 1][y + 1] == '   W':
+            if board[x][y + 2] == '   W' or board[x - 2][y] == '   W' or board[x + 1][y + 1] == '   W' or board[x - 1][
+                y - 1] == '   W':
+                return True
+        if board[x + 1][y - 1] == '   W':
+            if board[x][y - 2] == '   W' or board[x + 2][y] == '   W' or board[x + 1][y + 1] == '   W' or board[x - 1][
+                y - 1] == '   W':
+                return True
+        if board[x - 1][y - 1] == '   W':
+            if board[x][y - 2] == '   W' or board[x - 2][y] == '   W' or board[x - 1][y + 1] == '   W' or board[x + 1][
+                y - 1] == '   W':
+                return True
+
+    return False
+
+
 class Board:
     def __init__(self, rows=0, columns=0):
         self._rows = rows
         self._columns = columns
         # create 2d matrix for board
         self.board = [[0 for i in range(self.columns)] for j in range(self.rows)]
+        self.walls = []
+        self.obstacles = []
     @property
     def dimen(self):
         return (self._rows, self._columns)
@@ -25,26 +77,57 @@ class Board:
     def columns(self, n):
         self._columns = n
         return self._columns
+    #         Display boardS
     def showBoard(self):
         print('\n'.join([''.join(['{:4}'.format(item) for item in row]) for row in self.board]))
     def getBoard(self):
         return self.board
+    #         Create outer walls
     def init_wall(self, width=6, length=8):
-        topLeftCorner = random.randint(0, self._rows - width - 2)
-        for i in range(topLeftCorner, topLeftCorner + width + 2):
-            self.board[i][0] = 1
-            self.board[i][length + 1] = 1
-        for j in range(length + 2):
-            self.board[topLeftCorner][j] = 1
-            self.board[topLeftCorner + width + 1][j] = 1
+        # topLeftCorner = random.randint(0, self.rows - width - 2)
+        counter = 0
+        #         setting left and right wall boundaries
+        for i in range(self.rows):
+            self.board[i][0] = '   W'
+            # self.obstacles.append(Wall(counter))
+            # Wall.place((i,0))
+            self.board[i][self.columns - 1] = '   W'
+            # Wall.place((i,0))
+        #         setting top and bottom wall boundaries
+        for j in range(1, self.columns - 1):
+            self.board[0][j] = '   W'
+            self.board[self.rows - 1][j] = '   W'
+    #         Create obstacles
+    def init_obstacles(self, numOfObstacles=24):
+        # shift init wall before creature creation
+        self.init_wall()
+        obstacleNo = 0
+        while obstacleNo < numOfObstacles:
+            i = random.randint(1, self.rows - 2)
+            j = random.randint(1, self.columns - 2)
+            if (self.board[i][j] != 0):
+                continue
+            if not checkChokingPoint(self.board, i, j):
+                self.obstacles.append(Wall(obstacleNo))
+                (self.obstacles[obstacleNo]).place((i, j))
+                # print(obstacleNo, self.obstacles[obstacleNo].position)
+                self.board[i][j] = '   W'
+                obstacleNo += 1
+            # obstacleNo += 1
     def add_to_board(self, player):
         if isinstance(player, Snake):
-            name = f"S{player.name.split()[1]}"
+            name = f"  S{player.name.split()[1]}"
         elif isinstance(player, Mouse):
-            name = f"M{player.name.split()[1]}"
+            name = f"  M{player.name.split()[1]}"
+        # clear previous coords
         for row in self.board:
-            if name in row:
+            if isinstance(player, Snake):
+                for _ in range(3):
+                    if name in row:
+                        row[row.index(name)] = 0
+            elif name in row:
                 row[row.index(name)] = 0
+        # add current coords
         if player.status != "dead":
             for coord in player.position:
                 self.board[coord[1]][coord[0]] = name
@@ -120,6 +203,35 @@ class Object:
             return True if self._coord.coord == other._coord.coord else False
         if isinstance(other, tuple):
             return True if self._coord.coord == other else False
+
+class StationaryObject:
+    def __init__(self):
+        self._coord = Coord()
+    @property
+    def coord(self):
+        return self._coord.coord
+    def teleport(self, coords):
+        self._coord.coord = (coords[0], coords[1])
+        return self._coord.coord
+    def __eq__(self, other):
+        if isinstance(other, Object):
+            return True if self._coord.coord == other._coord.coord else False
+        if isinstance(other, tuple):
+            return True if self._coord.coord == other else False
+
+# WALL
+class Wall(StationaryObject):
+    def __init__(self, name):
+        super().__init__()
+        self._name = f"Wall {name}"
+    @property
+    def position(self):
+        # why is this a list?? for mouse and snake
+        return [self.coord]
+    def place(self, coords):
+        return self.teleport(coords)
+    def __str__(self):
+        return "Wall"
 
 class MouseHead(Object):
     def __init__(self):
@@ -301,35 +413,48 @@ class Snake:
 class Game:
     def __init__(self):
         self.board = None
+        # Changed to a dict of snakes
         self.snakes = {}
+        # Changed to just one dict of mice, i will add a dead or alive property
         self.mice = {}
         self._rounds = None
+        # Removed turns = Queue() and instead renamed it to moves due to our switch to websocket, all the moves from players sent over to our hosted server and added to queue
         self.moves = Queue()
+        # Removed current player due to switch to websocket
         self._game_state = {"State": None, "Snakes": self.snakes, "Mice": self.mice, "Rounds": self._rounds,
                             "Board": self.board, "Interactions": None}
+
     def addMouse(self):
         name = str(len(self.mice) + 1)
         self.mice[name] = Mouse(name)
         return self.mice[name].name
+
     def addSnake(self):
         name = str(len(self.snakes) + 1)
         self.snakes[name] = Snake(name)
         return self.snakes[name].name
+
     @property
     def rounds(self):
         return self._rounds
+
     @rounds.setter
     def rounds(self, n):
         self._rounds = n
+        return self._rounds
+
     @property
     def game_state(self):
         return self._game_state
+
     def get_board(self):
         return self.board.getBoard()
+
     def update_game_state(self, state):
         for key in state:
             self._game_state[key] = state[key]
         return self._game_state
+
     def check_game_state(self):
         if self.turns_done() == True:
             self._rounds -= 1
@@ -341,20 +466,24 @@ class Game:
         if self.game_done()[0] == True:
             print("game has ended")
             self.update_game_state({"State": "End"})
+
     def display_board(self):
         self.board.showBoard()
+
+    # TO DO
     def init_board(self, x, y):
         self.board = Board(x, y)
-        self.board.showBoard()
         print(self.board.dimen)
         return self.board.dimen
+
     def randomize_position(self, n):
         positions = []
         for p in range(n):
-            x = randint(0, self.board.dimen[0] - 1)
-            y = randint(2, self.board.dimen[1] - 3)
+            x = randint(1, self.board.dimen[0] - 2)
+            y = randint(3, self.board.dimen[1] - 4)
             positions.append((x, y))
         return positions
+
     def check_positions(self, positions):
         n = len(positions)
         for p in range(n):
@@ -362,6 +491,7 @@ class Game:
                 if abs(positions[p][0] - positions[o][0]) < 3 or abs(positions[p][1] - positions[o][1]) < 3:
                     return False
         return True
+
     def randomize_all_positions(self, n):
         randomized = False
         positions = None
@@ -369,11 +499,13 @@ class Game:
             positions = self.randomize_position(n)
             randomized = True if self.check_positions(positions) else False
         return positions
+
     def randomize_tail(self, snake, length, obstacles):
         #         generate tail recursively
         position = [snake.position[0]]
         obstacles = list(obstacles)
         obstacles.remove(position[0])
+
         def randomize_helper(init_pos, prev_pos=position[0]):
             if len(position) == length:
                 return
@@ -416,8 +548,10 @@ class Game:
             position.append(new_pos)
             obstacles.append(init_pos)
             randomize_helper(new_pos, init_pos)
+
         randomize_helper(position[0])
         snake.place(position)
+
     def init_position(self):
         n = len(self.mice) + len(self.snakes)
         positions = self.randomize_all_positions(n)
@@ -431,17 +565,23 @@ class Game:
                 self.randomize_tail(p, 3, positions)
         for p in players_list:
             self.board.add_to_board(p)
-    def start(self):
+
+    def start(self, x, y, o):
         self._rounds = 5
+        self.init_board(x, y)
         self.init_position()
+        self.board.init_obstacles(o)
+
     #         self._game_state["State"] = "live"
     #         while self._game_state["State"] == "live":
     #             self.proceed()
+
     def restore_turns(self):
         for snake in self.snakes:
             self.snakes[snake].turns = 5
         for mouse in self.mice:
             self.mice[mouse].turns = 3
+
     def turns_done(self):
         for snake in self.snakes:
             if self.snakes[snake].turns > 0:
@@ -450,17 +590,23 @@ class Game:
             if self.mice[mouse].turns > 0:
                 return False
         return True
+
     def game_done(self):
+        # if all mice are dead
         for mouse in self.mice:
             if self.mice[mouse].status == "alive":
+                # if round is 0
                 if self._rounds != 0:
                     return (False,)
                 else:
                     return True, "mice win"
         return True, "snakes win"
+
     def queue_move(self, move):
         self.moves.enqueue(move)
         return move
+
+    # looping
     def proceed(self):
         if self.moves.is_empty == False:
             name, species, direction = self.moves.dequeue()
@@ -470,14 +616,14 @@ class Game:
                 if snake.turns > 0 and snake != "dead":
                     snake.moved(direction)
                     # check if any wall or obstacle is in the way
-                    if (snake.get_moved()[0] < 0 or snake.get_moved()[0] > self.board.dimen[0] - 1) or (
-                            snake.get_moved()[1] < 0 or snake.get_moved()[1] > self.board.dimen[1] - 1):
-                        self.update_game_state({"Interactions": (snake, "collide", "wall")})
-                        self.check_game_state()
-                        packet["incident"] = self._game_state
-                        game.display_board()
-                        return packet
-                    elif self.get_board()[snake.get_moved()[1]][snake.get_moved()[0]] == 1:
+                    #                     if (snake.get_moved()[0]<0 or snake.get_moved()[0]>self.board.dimen[0]-1) or (snake.get_moved()[1]<0 or snake.get_moved()[1]>self.board.dimen[1]-1):
+                    #                         self.update_game_state({"Interactions": (snake, "collide", "wall")})
+                    #                         self.check_game_state()
+                    #                         packet["incident"] = self._game_state
+                    #                         game.display_board()
+                    #                         return packet
+                    if self.get_board()[snake.get_moved()[1]][snake.get_moved()[0]] == "   W":
+                        print("Snake collides wall")
                         self.update_game_state({"Interactions": (snake, "collide", "wall")})
                         self.check_game_state()
                         packet["incident"] = self._game_state
@@ -534,14 +680,14 @@ class Game:
                 mouse = self.mice[name]
                 if mouse.turns > 0 and mouse.status != "dead":
                     mouse.moved(direction)
-                    if (mouse.get_moved()[0] < 0 or mouse.get_moved()[0] > self.board.dimen[0] - 1) or (
-                            mouse.get_moved()[1] < 0 or mouse.get_moved()[1] > self.board.dimen[1] - 1):
-                        self.update_game_state({"Interactions": (mouse, "collide", "wall")})
-                        self.check_game_state()
-                        packet["incident"] = self._game_state
-                        game.display_board()
-                        return packet
-                    elif self.get_board()[mouse.get_moved()[1]][mouse.get_moved()[0]] == 1:
+                    #                     if (mouse.get_moved()[0]<0 or mouse.get_moved()[0]>self.board.dimen[0]-1) or (mouse.get_moved()[1]<0 or mouse.get_moved()[1]>self.board.dimen[1]-1):
+                    #                         self.update_game_state({"Interactions": (mouse, "collide", "wall")})
+                    #                         self.check_game_state()
+                    #                         packet["incident"] = self._game_state
+                    #                         game.display_board()
+                    #                         return packet
+                    if self.get_board()[mouse.get_moved()[1]][mouse.get_moved()[0]] == "   W":
+                        print("Mouse collides wall")
                         self.update_game_state({"Interactions": (mouse, "collide", "wall")})
                         self.check_game_state()
                         packet["incident"] = self._game_state
